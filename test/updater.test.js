@@ -45,6 +45,7 @@ test('updates stage once without changing the active runtime or user settings', 
   assert.equal(prepared, 1);
   assert.equal(manager.pending.version, '1.5.1');
   assert.equal(states.at(-1).phase, 'ready');
+  assert.equal(states.at(-1).busy, false, 'Tray controls must re-enable after a check.');
   assert.equal(fs.existsSync(path.join(profile, 'updates', 'active.json')), false);
   assert.deepEqual(fs.readFileSync(path.join(profile, 'settings.json')), before);
 });

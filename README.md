@@ -21,7 +21,7 @@ To install your local checkout instead:
 ```sh
 npm ci
 npm pack
-npm install -g ./nightplayproject-openwhip-1.5.1.tgz
+npm install -g ./nightplayproject-openwhip-1.5.2.tgz
 ```
 
 ## Controls
