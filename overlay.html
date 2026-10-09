@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self'">
 <style>
   * { margin: 0; padding: 0; cursor: none; }
   html, body { overflow: hidden; background: transparent; width: 100%; height: 100%; }
@@ -436,8 +437,10 @@ function loop() {
 loop();
 
 // ── IPC from main process ───────────────────────────────────────────────────
-window.bridge.onSpawnWhip(() => {
-  whip = spawnWhip(mouseX || W / 2, mouseY || H / 2);
+window.bridge.onSpawnWhip(point => {
+  mouseX = point.x;
+  mouseY = point.y;
+  whip = spawnWhip(mouseX, mouseY);
   dropping = false;
   prevMouseX = mouseX;
   prevMouseY = mouseY;
