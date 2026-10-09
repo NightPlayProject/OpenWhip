@@ -74,7 +74,7 @@ function displayBounds() {
 function spawnWhip() {
   const cursor = screen.getCursorScreenPoint();
   const bounds = overlay.getBounds();
-  overlay.webContents.send('spawn-whip', { x: cursor.x - bounds.x, y: cursor.y - bounds.y });
+  overlay.webContents.send('spawn-whip', { x: cursor.x - bounds.x, y: cursor.y - bounds.y, time: performance.timeOrigin + performance.now() });
 }
 
 function hideOverlay() {
@@ -103,25 +103,21 @@ function dropWhip() {
 function trackCursor() {
   clearInterval(cursorPoll);
   let mouseArmed = !input.mouseButtonsDown?.();
-  let previous;
   cursorPoll = setInterval(() => {
     if (!overlay?.isVisible() || !overlayReady || whipDropping) return;
     const pressed = input.mouseButtonsDown?.() || false;
     if (!pressed) mouseArmed = true;
     if (pressed && mouseArmed) { dropWhip(); return; }
     const cursor = screen.getCursorScreenPoint();
-    if (previous && previous.x === cursor.x && previous.y === cursor.y) return;
-    previous = cursor;
     const bounds = overlay.getBounds();
     const next = screen.getDisplayNearestPoint(cursor).bounds;
     if (bounds.x !== next.x || bounds.y !== next.y || bounds.width !== next.width || bounds.height !== next.height) {
       overlay.setBounds(next);
-      spawnWhip();
+      overlay.webContents.send('rebase-whip', { x: bounds.x - next.x, y: bounds.y - next.y });
       updateStatus({ overlay: { visible: true, ready: true, clickThrough: true, bounds: next } });
-    } else {
-      overlay.webContents.send('cursor-state', { x: cursor.x - bounds.x, y: cursor.y - bounds.y });
     }
-  }, 16);
+    overlay.webContents.send('cursor-state', { x: cursor.x - next.x, y: cursor.y - next.y, time: performance.timeOrigin + performance.now() });
+  }, 8);
 }
 
 function createOverlay() {

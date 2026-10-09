@@ -124,17 +124,40 @@ async function main() {
       await until(() => readStatus().overlay?.visible === false, 'Click did not drop the whip.');
       assert.equal(read().a.interrupts, 0);
       results.push('Underlying native app kept processing UI events and received a real mouse click through the visible overlay.');
+      const start = { x: Math.round(width * 0.5), y: Math.round(height * 0.55) };
+      setCursor(start.x, start.y);
       shortcut(0x57);
       await until(() => readStatus().overlay?.visible, 'Whip did not reopen.');
       await delay(450);
-      for (let i = 0; i < 20; i++) {
-        assert.equal(input.isActive(targetA), true, 'Refuse to flick outside the test receiver.');
-        assert.ok(setCursor(Math.round(width * (i % 2 ? 0.85 : 0.15)), Math.round(height * (i % 2 ? 0.7 : 0.3))));
-        await delay(32);
+      assert.equal(read().a.interrupts, 0, 'A stationary mouse caused a false crack.');
+      async function move(from, dx, dy, duration) {
+        const started = performance.now();
+        while (performance.now() - started < duration) {
+          assert.equal(input.isActive(targetA), true, 'Refuse to flick outside the test receiver.');
+          const amount = Math.min(1, (performance.now() - started) / duration);
+          assert.ok(setCursor(Math.round(from.x + dx * amount), Math.round(from.y + dy * amount)));
+          await delay(8);
+        }
+        assert.ok(setCursor(from.x + dx, from.y + dy));
       }
-      await until(() => read()?.a.submitted.length === 1, 'Real mouse movement did not crack the whip and submit.');
+      await move(start, 70, 0, 500);
+      await delay(200);
+      assert.equal(read().a.interrupts, 0, 'Slow mouse movement caused a false crack.');
+      const from = { x: start.x + 70, y: start.y };
+      await move(from, 140, -35, 90);
+      await until(() => read()?.a.submitted.length === 1, 'A natural 140 px mouse flick did not crack the whip and submit.');
       assert.deepEqual(read().a.submitted, ['GLOBAL TEST']);
       assert.equal(read().a.interrupts, 1);
+      await delay(500);
+      assert.equal(read().a.interrupts, 1, 'Rope settling repeated the macro.');
+      results.push('Idle and slow OS cursor movement produced no macro; one natural 140 px / 90 ms flick submitted exactly once.');
+      command('reset-a');
+      await until(() => read()?.a.interrupts === 0 && read()?.a.text === '', 'Receiver did not reset for the return flick.');
+      await move({ x: from.x + 140, y: from.y - 35 }, -140, 35, 90);
+      await until(() => read()?.a.submitted.length === 1, 'A deliberate return flick did not rearm and submit.');
+      assert.deepEqual(read().a.submitted, ['GLOBAL TEST']);
+      assert.equal(read().a.interrupts, 1);
+      results.push('A second deliberate flick after rest rearmed and submitted exactly once.');
     } finally { setCursor(originalCursor.x, originalCursor.y); }
     // Escape is captured only while the whip is visible.
     key(0x1b, 0, 0, 0); key(0x1b, 0, 2, 0);

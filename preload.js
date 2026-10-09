@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('bridge', {
   onSpawnWhip: (fn) => ipcRenderer.on('spawn-whip', (_event, point) => fn(point)),
   onDropWhip: (fn) => ipcRenderer.on('drop-whip', () => fn()),
   onCursorState: (fn) => ipcRenderer.on('cursor-state', (_event, point) => fn(point)),
+  onRebaseWhip: (fn) => ipcRenderer.on('rebase-whip', (_event, offset) => fn(offset)),
   onStopWhip: (fn) => ipcRenderer.on('stop-whip', () => fn()),
 });
