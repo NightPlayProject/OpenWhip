@@ -1,6 +1,6 @@
 # Validation
 
-The release-verification script `node scripts/live-update-smoke.js 1.5.1` launches the globally installed 1.5.0 bootstrap in an isolated Windows profile, uses the real GitHub feed and npm installer to upgrade to 1.5.1 automatically, and checks the restarted runtime and global CLI. It verifies byte-for-byte preservation of custom text, audio and preferences, then runs the native whip smoke test against the upgraded runtime. Its machine-readable result is saved as `out/validation/live-update-smoke.json`.
+The release-verification script `node scripts/live-update-smoke.js 1.5.3` launches the globally installed 1.5.2 bootstrap in an isolated Windows profile, uses the real GitHub feed and npm installer to upgrade to 1.5.3 automatically, and checks the restarted runtime and global CLI. It verifies byte-for-byte preservation of custom text, audio and preferences, then runs the native whip smoke test against the upgraded runtime. Its machine-readable result is saved as `out/validation/live-update-smoke.json`.
 
 Checked on Windows on October 8, 2026, using Node.js 24.15.0, Electron 44.7.0, and Koffi 3.3.2.
 

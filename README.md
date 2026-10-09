@@ -21,7 +21,7 @@ To install your local checkout instead:
 ```sh
 npm ci
 npm pack
-npm install -g ./nightplayproject-openwhip-1.5.2.tgz
+npm install -g ./nightplayproject-openwhip-1.5.3.tgz
 ```
 
 ## Controls
@@ -42,7 +42,7 @@ Use **Preview sound** to listen without sending a message, or **Use default soun
 
 ## Automatic updates
 
-Automatic updates are enabled by default for npm installations, starting with version 1.5.0. Users on an older version need to run the install command once to get the updater.
+Automatic updates are enabled by default for npm installations, starting with version 1.5.2. Users on an older version need to run the install command once to get the working updater.
 
 The app checks your fork's `main` branch shortly after launch, at most every six hours. It downloads a newer version to a separate folder while the current copy keeps running. It restarts when the whip is put away, the message editor and sound picker are closed, and no message is being sent. Messages, sound files, and preferences stay in the user profile. If the new copy fails to start, the updater restores and launches the previous copy.
 
