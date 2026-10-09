@@ -1,10 +1,14 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut, dialog } = require('electron');
+const { spawn } = require('node:child_process');
 const path = require('node:path');
 const fs = require('node:fs');
 const os = require('node:os');
 const { createPlatformInput } = require('./lib/platform-input');
 const { MacroRunner } = require('./lib/macro');
 const { createSettingsStore } = require('./lib/settings');
+const { importSound, loadSound } = require('./lib/sound');
+const { Updater } = require('./lib/updater');
+const { isManagedInstall, writeJSON } = require('./lib/runtime');
 const { parseOptions } = require('./lib/options');
 const { directory, writeStatus } = require('./lib/state');
 const pkg = require('./package.json');
@@ -17,6 +21,11 @@ if (process.platform === 'win32') app.setAppUserModelId('NightPlay.OpenWhip');
 
 let tray, trayMenu, overlay, messageEditor, input, runner, focusPoll, cursorPoll, appReady;
 let quitting = false;
+let updater, updateCheckTimer, updateApplyTimer, updateStartTimer;
+let startingUpdate = false;
+let manualUpdateRequested = false;
+let soundDialogOpen = false;
+let soundConfig = null;
 let whipDropping = false;
 const settings = createSettingsStore(directory);
 let overlayReady = false;
@@ -136,6 +145,7 @@ function createOverlay() {
   overlayReady = false;
   overlay.webContents.on('did-finish-load', () => {
     overlayReady = true;
+    overlay.webContents.send('sound-config', soundConfig);
     updateStatus({ overlay: { ready: true, visible: overlay.isVisible(), clickThrough: true, bounds: overlay.getBounds() } });
     if (spawnQueued && overlay?.isVisible()) {
       spawnQueued = false;
@@ -200,15 +210,108 @@ function registerShortcuts() {
 }
 
 function updateTrayMenu() {
+  const updateLabels = { idle: 'Updates checked automatically', development: 'Updates disabled for this copy', checking: 'Checking for updates…', downloading: 'Downloading update…', ready: 'Update ready — put away the whip to restart', current: 'You are up to date', error: 'Update failed — try checking again', restarting: 'Restarting for update…' };
   trayMenu = Menu.buildFromTemplate([
     { label: 'Pick up / drop whip (Ctrl+Alt+W)', click: () => invoke(() => toggleOverlay(true)) },
     { type: 'separator' },
     { label: 'Custom message…', click: showMessageEditor },
     { label: 'Use random messages', type: 'checkbox', checked: !runner.options.message, click: () => invoke(() => applyMessage('')) },
+    { label: 'Whip sound', submenu: [
+      { label: 'Choose custom sound…', enabled: !soundDialogOpen, click: () => invoke(chooseSound) },
+      { label: 'Preview sound', click: () => invoke(previewSound) },
+      { label: 'Use default sounds', type: 'checkbox', checked: !soundConfig, click: () => invoke(resetSound) },
+    ] },
+    { type: 'separator' },
+    { label: 'Updates', submenu: [
+      { label: updateLabels[updater?.status.phase || 'idle'], enabled: false },
+      { label: 'Automatic updates', type: 'checkbox', checked: updater?.enabled !== false, enabled: Boolean(updater?.supported), click: item => {
+        settings.saveAutoUpdates(item.checked);
+        updater.setEnabled(item.checked);
+        if (item.checked) { invoke(() => updater.check()); tryApplyUpdate(); }
+      } },
+      { label: 'Check for updates', enabled: Boolean(updater?.supported && !updater.busy && !startingUpdate), click: () => invoke(() => updater.check(true)) },
+      ...(updater?.pending ? [{ label: 'Install update and restart', click: () => tryApplyUpdate(true) }] : []),
+    ] },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
   ]);
   tray.setContextMenu(trayMenu);
+}
+
+async function ensureOverlayReady() {
+  if (!overlay) createOverlay();
+  if (overlayReady) return;
+  await new Promise((resolve, reject) => {
+    const contents = overlay.webContents;
+    const done = () => { contents.removeListener('did-fail-load', failed); resolve(); };
+    const failed = () => { contents.removeListener('did-finish-load', done); reject(new Error('Could not load sound playback.')); };
+    contents.once('did-finish-load', done);
+    contents.once('did-fail-load', failed);
+  });
+}
+
+async function validateAudioSource(src) {
+  await ensureOverlayReady();
+  await overlay.webContents.executeJavaScript(`new Promise((resolve, reject) => {
+    const audio = new Audio();
+    const timeout = setTimeout(() => reject(new Error('Audio file could not be decoded.')), 5000);
+    audio.onloadedmetadata = () => { clearTimeout(timeout); if (audio.duration > 0 && Number.isFinite(audio.duration)) resolve(); else reject(new Error('Audio file has no playable duration.')); };
+    audio.onerror = () => { clearTimeout(timeout); reject(new Error('This audio file cannot be played. Choose another sound.')); };
+    audio.src = ${JSON.stringify(src)};
+  })`);
+}
+
+async function chooseSound() {
+  if (soundDialogOpen) return;
+  hideOverlay();
+  soundDialogOpen = true;
+  updateTrayMenu();
+  try {
+    const result = await dialog.showOpenDialog({ title: 'Choose your whip sound', properties: ['openFile'], filters: [{ name: 'Audio files', extensions: ['mp3', 'wav', 'ogg', 'opus', 'flac', 'm4a', 'aac'] }] });
+    if (result.canceled || !result.filePaths.length) return;
+    const imported = await importSound(directory, result.filePaths[0], validateAudioSource);
+    settings.saveSound(imported.setting);
+    soundConfig = { src: imported.src, name: imported.setting.name };
+    overlay.webContents.send('sound-config', soundConfig);
+    updateStatus({ soundMode: 'custom' });
+  } finally {
+    soundDialogOpen = false;
+    updateTrayMenu();
+    if (!quitting && process.platform === 'win32' && lastTarget) await input.restoreTarget(lastTarget);
+  }
+}
+
+async function previewSound() {
+  await ensureOverlayReady();
+  overlay.webContents.send('sound-preview');
+}
+
+function resetSound() {
+  settings.saveSound(null);
+  soundConfig = null;
+  if (overlayReady) overlay.webContents.send('sound-config', null);
+  updateStatus({ soundMode: 'default' });
+  updateTrayMenu();
+}
+
+function tryApplyUpdate(manual = false) {
+  if (manual) manualUpdateRequested = true;
+  if (startingUpdate || !updater?.pending || (!updater.enabled && !manualUpdateRequested) || runner.busy || overlay?.isVisible() || messageEditor || soundDialogOpen || quitting) return;
+  const pending = updater.pending;
+  const updateDirectory = path.join(directory, 'updates');
+  fs.mkdirSync(updateDirectory, { recursive: true });
+  const helper = path.join(updateDirectory, 'update-helper.js');
+  const plan = path.join(updateDirectory, 'handoff-plan.json');
+  fs.copyFileSync(path.join(__dirname, 'bin', 'update-helper.js'), helper);
+  const args = ['--interrupt-delay', String(options.interruptDelay), '--enter-delay', String(options.enterDelay)];
+  if (options.message) args.push('--message', options.message);
+  writeJSON(plan, { profile: directory, parentPid: process.pid, node: pending.node, installRoot: process.env.OPENWHIP_INSTALL_ROOT || __dirname, fallbackPath: __dirname, release: pending, args });
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;
+  const child = spawn(pending.node, [helper, plan], { detached: true, stdio: 'ignore', windowsHide: true, env });
+  startingUpdate = true;
+  child.once('error', error => { startingUpdate = false; updater.publish({ phase: 'error', error: error.message }); });
+  child.once('spawn', () => { child.unref(); updater.publish({ phase: 'restarting' }); app.quit(); });
 }
 
 function applyMessage(value) {
@@ -248,6 +351,10 @@ if (!app.requestSingleInstanceLock({ command: options.command })) {
 } else {
   app.on('second-instance', (_event, _argv, _directory, data) => {
     if (data?.command === 'quit') app.quit();
+    if (data?.command === 'check-updates') invoke(() => updater.check(true));
+  });
+  ipcMain.on('sound-played', (event, mode) => {
+    if (event.sender === overlay?.webContents && ['custom', 'default'].includes(mode)) updateStatus({ lastSound: { mode, at: new Date().toISOString() } });
   });
   ipcMain.on('whip-crack', event => {
     if (overlay?.isVisible() && !whipDropping && event.sender === overlay.webContents) invoke(runMacro);
@@ -275,10 +382,15 @@ if (!app.requestSingleInstanceLock({ command: options.command })) {
   appReady = app.whenReady().then(async () => {
     if (process.platform === 'darwin') app.dock.hide();
     input = createPlatformInput();
-    let savedMessage = '';
-    try { savedMessage = settings.read().message; }
+    let saved = { message: '', sound: null, autoUpdates: true };
+    try { saved = settings.read(); }
     catch (error) { console.warn('Could not load saved message:', error.message); }
-    runner = new MacroRunner(input, { ...options, message: options.message ?? savedMessage });
+    runner = new MacroRunner(input, { ...options, message: options.message ?? saved.message });
+    try { soundConfig = await loadSound(directory, saved.sound); }
+    catch (error) { console.warn('Could not load custom sound:', error.message); }
+    updater = new Updater({ profile: directory, version: pkg.version, supported: isManagedInstall(__dirname), enabled: saved.autoUpdates,
+      onStatus: update => { updateStatus({ update }); if (tray) updateTrayMenu(); }, onReady: () => tryApplyUpdate(),
+    });
     if (process.platform === 'win32') {
       lastTarget = input.captureTarget();
       focusPoll = setInterval(() => {
@@ -294,7 +406,12 @@ if (!app.requestSingleInstanceLock({ command: options.command })) {
     for (const event of ['display-added', 'display-removed', 'display-metrics-changed']) {
       screen.on(event, () => { if (overlay?.isVisible()) { overlay.setBounds(displayBounds()); if (overlayReady) spawnWhip(); } });
     }
-    updateStatus({ running: true, startedAt: new Date().toISOString(), shortcuts, messageMode: runner.options.message ? 'custom' : 'random' });
+    updateStatus({ running: true, startedAt: new Date().toISOString(), shortcuts, messageMode: runner.options.message ? 'custom' : 'random', soundMode: soundConfig ? 'custom' : 'default', update: updater.status });
+    if (process.env.OPENWHIP_DISABLE_UPDATE_CHECKS !== '1') {
+      updateStartTimer = setTimeout(() => invoke(() => updater.check(options.command === 'check-updates')), 15000);
+      updateCheckTimer = setInterval(() => invoke(() => updater.check()), 60 * 60 * 1000);
+      updateApplyTimer = setInterval(tryApplyUpdate, 1000);
+    }
     console.log(new Date().toISOString(), `OpenWhip ${pkg.version} ready (PID ${process.pid}).`);
   }).catch(error => {
     console.error('OpenWhip startup failed:', error);
@@ -307,10 +424,13 @@ if (!app.requestSingleInstanceLock({ command: options.command })) {
     quitting = true;
     clearInterval(focusPoll);
     clearInterval(cursorPoll);
+    clearTimeout(updateStartTimer);
+    clearInterval(updateCheckTimer);
+    clearInterval(updateApplyTimer);
     runner?.cancel();
     globalShortcut.unregisterAll();
     updateStatus({ running: false });
   });
 }
 
-module.exports = { ready: () => appReady, getTrayMenu: () => trayMenu, getMessageEditor: () => messageEditor };
+module.exports = { ready: () => appReady, getTrayMenu: () => trayMenu, getMessageEditor: () => messageEditor, getOverlay: () => overlay, getUpdater: () => updater };

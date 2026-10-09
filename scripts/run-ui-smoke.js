@@ -7,7 +7,7 @@ async function main() {
   const appData = path.join(output, 'ui-runtime');
   fs.mkdirSync(appData, { recursive: true });
   for (const phase of ['edit', 'restart']) {
-    const env = { ...process.env, APPDATA: appData, OPENWHIP_UI_SMOKE_PHASE: phase };
+    const env = { ...process.env, APPDATA: appData, OPENWHIP_UI_SMOKE_PHASE: phase, OPENWHIP_DISABLE_UPDATE_CHECKS: '1' };
     if (process.argv.includes('--installed')) env.OPENWHIP_UI_SMOKE_APP = path.join(process.env.APPDATA, 'npm', 'node_modules', '@nightplayproject', 'openwhip', 'main.js');
     delete env.ELECTRON_RUN_AS_NODE;
     const child = spawn(require('electron'), [path.join(__dirname, 'ui-smoke.js')], { env, stdio: 'inherit', windowsHide: true });

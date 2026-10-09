@@ -1,6 +1,6 @@
 {
   "name": "@nightplayproject/openwhip",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Global desktop whip with timed Ctrl+C, message and automatic Enter in the active app",
   "license": "MIT",
   "main": "main.js",
@@ -40,7 +40,7 @@
     "message-preload.js",
     "sounds",
     "icon",
-    "bin/openwhip.js",
+    "bin",
     "assets/divider.png",
     "VALIDATION.md",
     "README.md"

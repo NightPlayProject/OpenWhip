@@ -6,6 +6,13 @@ const { setTimeout: delay } = require('node:timers/promises');
 const { parseOptions } = require('../lib/options');
 const { directory, logPath, readStatus } = require('../lib/state');
 const pkg = require('../package.json');
+const { resolveRuntime, isManagedInstall } = require('../lib/runtime');
+const installedPath = path.resolve(__dirname, '..');
+const activePath = isManagedInstall(installedPath) ? resolveRuntime(directory, installedPath, pkg.version) : installedPath;
+process.env.OPENWHIP_INSTALL_ROOT ||= installedPath;
+if (activePath !== installedPath) {
+  require(path.join(activePath, 'bin', 'openwhip.js'));
+} else {
 
 const HELP = `OpenWhip NightPlay ${pkg.version}
 
@@ -16,6 +23,7 @@ Usage: openwhip [options]
   --enter-delay MS        Wait before Enter (default: 150)
   --status                Show whether the tray app is running
   --quit                  Quit the tray app
+  --check-updates         Check GitHub for an update now
   --version               Show the installed version
   --help                  Show this help
 
@@ -45,6 +53,7 @@ async function main() {
   fs.mkdirSync(directory, { recursive: true });
   const log = fs.openSync(logPath, 'a');
   const env = { ...process.env };
+  env.OPENWHIP_NODE_BINARY = process.execPath;
   delete env.ELECTRON_RUN_AS_NODE;
   let child;
   try {
@@ -58,6 +67,11 @@ async function main() {
   let exitCode;
   child.once('error', error => { launchError = error; });
   child.once('exit', code => { exitCode = code; });
+  if (options.command === 'check-updates' && current.running) {
+    child.unref();
+    console.log('Update check requested. Use openwhip --status for progress.');
+    return;
+  }
   const deadline = Date.now() + 15000;
   while (Date.now() < deadline) {
     if (launchError) throw launchError;
@@ -78,3 +92,4 @@ main().catch(error => {
   console.error(error.message);
   process.exitCode = 1;
 });
+}

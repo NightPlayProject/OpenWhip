@@ -2,6 +2,25 @@ const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 const motion = new WhipMotion();
 const sounds = ['A', 'B', 'C', 'D', 'E'].map(name => new Audio(`sounds/${name}.mp3`));
+let customSound = null;
+window.bridge.onSoundConfig(config => {
+  if (customSound) customSound.pause();
+  customSound = config ? new Audio(config.src) : null;
+});
+async function playSound() {
+  let sound = customSound || sounds[Math.floor(Math.random() * sounds.length)];
+  const mode = customSound ? 'custom' : 'default';
+  sound.currentTime = 0;
+  try { await sound.play(); window.bridge.soundPlayed(mode); }
+  catch {
+    if (mode === 'custom') {
+      sound = sounds[Math.floor(Math.random() * sounds.length)];
+      sound.currentTime = 0;
+      sound.play().then(() => window.bridge.soundPlayed('default')).catch(() => {});
+    }
+  }
+}
+window.bridge.onSoundPreview(playSound);
 let width, height, frame = null;
 const now = () => performance.timeOrigin + performance.now();
 
@@ -82,9 +101,7 @@ window.bridge.onCursorState(point => {
   // Do not replay a gesture that sat in the IPC queue while the renderer was busy.
   if (now() - point.time > 120) return;
   if (motion.input(point)) {
-    const sound = sounds[Math.floor(Math.random() * sounds.length)];
-    sound.currentTime = 0;
-    sound.play().catch(() => {});
+    playSound();
     window.bridge.whipCrack();
   }
 });

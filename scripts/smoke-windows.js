@@ -81,7 +81,7 @@ async function main() {
 
     command('reset-a');
     await until(() => input.isActive(targetA) && read()?.a.interrupts === 0, 'Receiver A did not reset.');
-    await exec(process.execPath, [cli, '--message', 'GLOBAL TEST']);
+    await exec(process.execPath, [cli, '--message', 'GLOBAL TEST'], { env: { ...process.env, OPENWHIP_DISABLE_UPDATE_CHECKS: '1' } });
     appStarted = true;
     assert.equal(readStatus().shortcuts['Control+Alt+Enter'], undefined);
     assert.equal(readStatus().shortcuts['Control+Alt+W'], true);

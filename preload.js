@@ -8,4 +8,7 @@ contextBridge.exposeInMainWorld('bridge', {
   onCursorState: (fn) => ipcRenderer.on('cursor-state', (_event, point) => fn(point)),
   onRebaseWhip: (fn) => ipcRenderer.on('rebase-whip', (_event, offset) => fn(offset)),
   onStopWhip: (fn) => ipcRenderer.on('stop-whip', () => fn()),
+  onSoundConfig: (fn) => ipcRenderer.on('sound-config', (_event, config) => fn(config)),
+  onSoundPreview: (fn) => ipcRenderer.on('sound-preview', () => fn()),
+  soundPlayed: mode => ipcRenderer.send('sound-played', mode),
 });
