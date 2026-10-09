@@ -1,6 +1,8 @@
 # Validation
 
-Latest verified release: 1.5.3. The live Windows upgrade from 1.5.2 to 1.5.3 passed using GitHub, npm, a restarted Electron process, and the global launcher. Custom settings and audio bytes remained unchanged, and the upgraded copy passed the native whip test.
+Latest motion release: 1.5.4. Twenty-nine tests pass, including ordinary cursor sweeps and short fast movements that must stay quiet at 30–240 Hz. The real Windows test verifies that an 80-pixel / 90 ms movement sends nothing, while a deliberate 140-pixel / 90 ms flick submits exactly once. The renderer was inspected after reducing handle rotation and increasing tail damping.
+
+The live Windows upgrade from 1.5.2 to 1.5.3 passed using GitHub, npm, a restarted Electron process, and the global launcher. Custom settings and audio bytes remained unchanged, and the upgraded copy passed the native whip test.
 
 The release-verification script `node scripts/live-update-smoke.js 1.5.3` launches the globally installed 1.5.2 bootstrap in an isolated Windows profile, uses the real GitHub feed and npm installer to upgrade to 1.5.3 automatically, and checks the restarted runtime and global CLI. It verifies byte-for-byte preservation of custom text, audio and preferences, then runs the native whip smoke test against the upgraded runtime. Its machine-readable result is saved as `out/validation/live-update-smoke.json`.
 

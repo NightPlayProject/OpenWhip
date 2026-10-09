@@ -63,6 +63,15 @@ test('horizontal, vertical and diagonal strokes work in both directions', () => 
   }
 });
 
+test('ordinary cursor sweeps and short fast movements do not crack the whip', () => {
+  for (const [distance, duration] of [[80, 90], [100, 120], [140, 180], [70, 40]]) {
+    for (const fps of [30, 60, 144, 240]) {
+      const path = time => ({ x: 700 + distance * Math.max(0, Math.min(1, (time - 600) / duration)), y: 550 });
+      assert.deepEqual(replay(path, fps).cracks, [], `${distance}px over ${duration}ms at ${fps}Hz should stay quiet.`);
+    }
+  }
+});
+
 test('continuous shaking produces one crack; a new deliberate stroke rearms after rest', () => {
   const shaking = time => ({ x: 700 + (time >= 600 ? Math.sin((time - 600) / 24) * 120 : 0), y: 550 });
   assert.equal(replay(shaking, 144, 2800).cracks.length, 1);

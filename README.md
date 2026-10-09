@@ -21,7 +21,7 @@ To install your local checkout instead:
 ```sh
 npm ci
 npm pack
-npm install -g ./nightplayproject-openwhip-1.5.3.tgz
+npm install -g ./nightplayproject-openwhip-1.5.4.tgz
 ```
 
 ## Controls
@@ -59,7 +59,7 @@ The global npm command acts as a launcher for the newest installed copy. `openwh
 
 Messages are sent only by cracking the whip. The overlay follows the pointer's monitor and lets clicks pass through to the apps underneath. It does not take keyboard focus. Cursor tracking and animation stop when the whip is hidden; clicking also drops it on Windows. Each crack captures the active app. Windows waits for modifiers to be released, sends Ctrl+C, waits 500 ms, types the message, waits another 150 ms, and presses an unmodified Enter. Input is checked before every character and before Enter. Changing foreground windows or dropping the whip cancels the remaining sequence. Rapid cracks are dropped while a macro is running; they are never queued for later delivery.
 
-The grip follows the pointer immediately while the flexible tail carries momentum. The rope uses fixed time steps, so its behavior stays consistent across display refresh rates. Crack detection uses the mouse stroke's speed and travel, ignores idle motion and small jitter, and emits one crack per stroke. Crossing monitors preserves the rope instead of respawning it.
+The grip follows the pointer immediately while the flexible tail carries momentum. Handle rotation is smoothed and the tail settles gently. The rope uses fixed time steps, so its behavior stays consistent across display refresh rates. Crack detection requires a deliberate fast stroke with enough travel; ordinary short movements, slow sweeps and small jitter stay quiet. It emits one crack per stroke. Crossing monitors preserves the rope instead of respawning it.
 
 Use a custom message or longer delays for an app that takes more time to respond to Ctrl+C:
 
