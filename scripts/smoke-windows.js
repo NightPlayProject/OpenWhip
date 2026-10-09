@@ -83,7 +83,7 @@ async function main() {
     await until(() => input.isActive(targetA) && read()?.a.interrupts === 0, 'Receiver A did not reset.');
     await exec(process.execPath, [cli, '--message', 'GLOBAL TEST']);
     appStarted = true;
-    assert.equal(readStatus().shortcuts['Control+Alt+Enter'], true);
+    assert.equal(readStatus().shortcuts['Control+Alt+Enter'], undefined);
     assert.equal(readStatus().shortcuts['Control+Alt+W'], true);
     const koffi = require('koffi');
     const user32 = koffi.load('user32.dll');
@@ -93,19 +93,11 @@ async function main() {
       for (const value of [0x11, 0x12, vk]) key(value, 0, 0, 0);
       for (const value of [vk, 0x12, 0x11]) key(value, 0, 2, 0);
     }
-    shortcut(0x57);
-    await until(() => readStatus().overlay?.ready && readStatus().overlay?.visible, 'Overlay did not load.');
-    assert.equal(input.isActive(targetA), true, 'Overlay stole keyboard focus.');
-    results.push('Global overlay shortcut loaded the real whip without stealing focus.');
     shortcut(0x0d);
-    await until(() => read()?.a.submitted.length === 1, 'Global shortcut did not automatically submit.');
-    assert.deepEqual(read().a.submitted, ['GLOBAL TEST']);
-    assert.equal(read().a.interrupts, 1);
-    assert.equal(read().b.text, '');
-    results.push('Real Electron global shortcut delivered Ctrl+C, configured text, and exactly one Enter to the external native app.');
-    await delay(1100);
-    command('reset-a');
-    await until(() => read()?.a.text === '' && read()?.a.interrupts === 0, 'Receiver did not reset before whip test.');
+    await delay(900);
+    assert.equal(read().a.interrupts, 0);
+    assert.deepEqual(read().a.submitted, []);
+    results.push('Ctrl+Alt+Enter is unregistered and sends no macro.');
     const pointType = koffi.struct({ x: 'int32_t', y: 'int32_t' });
     const getCursor = user32.func('__stdcall', 'GetCursorPos', 'int', [koffi.out(koffi.pointer(pointType))]);
     const setCursor = user32.func('int __stdcall SetCursorPos(int x, int y)');
@@ -115,16 +107,38 @@ async function main() {
     const width = metrics(0);
     const height = metrics(1);
     try {
+      const click = read().a.clickPoint;
+      setCursor(click.x, click.y);
+      shortcut(0x57);
+      await until(() => readStatus().overlay?.ready && readStatus().overlay?.visible, 'Overlay did not load.');
+      assert.equal(input.isActive(targetA), true, 'Overlay stole keyboard focus.');
+      assert.equal(readStatus().overlay.clickThrough, true);
+      const ticks = read().a.ticks;
+      await delay(160);
+      assert.ok(read().a.ticks > ticks + 1, 'Underlying app stopped processing its UI timer.');
+      const mouse = user32.func('void __stdcall mouse_event(uint32_t flags, uint32_t dx, uint32_t dy, uint32_t data, uintptr_t extra)');
+      mouse(2, 0, 0, 0, 0);
+      await delay(80);
+      mouse(4, 0, 0, 0, 0);
+      await until(() => read()?.a.clicks === 1, 'Overlay blocked the underlying button click.');
+      await until(() => readStatus().overlay?.visible === false, 'Click did not drop the whip.');
+      assert.equal(read().a.interrupts, 0);
+      results.push('Underlying native app kept processing UI events and received a real mouse click through the visible overlay.');
+      shortcut(0x57);
+      await until(() => readStatus().overlay?.visible, 'Whip did not reopen.');
+      await delay(450);
       for (let i = 0; i < 20; i++) {
         assert.equal(input.isActive(targetA), true, 'Refuse to flick outside the test receiver.');
         assert.ok(setCursor(Math.round(width * (i % 2 ? 0.85 : 0.15)), Math.round(height * (i % 2 ? 0.7 : 0.3))));
         await delay(32);
       }
+      await until(() => read()?.a.submitted.length === 1, 'Real mouse movement did not crack the whip and submit.');
+      assert.deepEqual(read().a.submitted, ['GLOBAL TEST']);
+      assert.equal(read().a.interrupts, 1);
     } finally { setCursor(originalCursor.x, originalCursor.y); }
     // Escape is captured only while the whip is visible.
     key(0x1b, 0, 0, 0); key(0x1b, 0, 2, 0);
     await until(() => readStatus().overlay?.visible === false, 'Escape did not drop the whip.');
-    await until(() => read()?.a.submitted.length === 1, 'Real mouse movement did not crack the whip and submit.');
     assert.deepEqual(read().a.submitted, ['GLOBAL TEST']);
     assert.equal(read().b.text, '');
     results.push('Mouse movement through the real overlay cracked the animated whip and automatically submitted to the native app.');

@@ -21,9 +21,10 @@ Usage: openwhip [options]
 
 Global shortcuts:
   Ctrl+Alt+W              Pick up / drop the whip
-  Ctrl+Alt+Enter          Send Ctrl+C, message, then Enter to the active app
   Escape                 Drop the whip while it is visible
 
+Crack the whip to send Ctrl+C, your message, then Enter to the active app.
+Right-click the tray icon and choose Custom message to save your own text.
 Keep the desired text field focused. Switching apps cancels remaining keys.
 Log: ${logPath}`;
 
@@ -63,7 +64,7 @@ async function main() {
     const status = readStatus();
     if (options.command === 'quit' ? !status.running : status.running && status.pid === child.pid) {
       child.unref();
-      console.log(options.command === 'quit' ? 'OpenWhip stopped.' : 'OpenWhip ready. Ctrl+Alt+W: whip. Ctrl+Alt+Enter: send to the active app.');
+      console.log(options.command === 'quit' ? 'OpenWhip stopped.' : 'OpenWhip ready. Crack the whip to send. Right-click the tray icon to set your message.');
       return;
     }
     if (exitCode !== undefined && options.command !== 'quit') break;

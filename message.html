@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'">
+  <title>Whip message</title>
+  <style>
+    :root { color-scheme: dark; font-family: 'Segoe UI', sans-serif; color: #f2f3f5; background: #181a20; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 28px; }
+    h1 { font-size: 23px; margin: 0 0 9px; font-weight: 650; }
+    p { color: #adb2c0; font-size: 14px; line-height: 1.5; margin: 0 0 24px; }
+    label { display: block; font-size: 13px; margin: 0 0 8px; }
+    input { width: 100%; padding: 12px; font: inherit; color: inherit; background: #22252d; border: 1px solid #555b6c; border-radius: 8px; }
+    input:focus-visible { outline: 2px solid #aa95ff; outline-offset: 2px; }
+    .hint { display: flex; justify-content: space-between; color: #969cac; font-size: 12px; margin-top: 9px; }
+    #error { color: #ffada6; min-height: 22px; font-size: 13px; margin-top: 12px; }
+    footer { display: flex; align-items: center; gap: 9px; margin-top: 18px; }
+    button { padding: 9px 15px; border: 1px solid #515766; border-radius: 7px; font: inherit; font-size: 13px; color: inherit; background: #292d37; cursor: pointer; }
+    button:focus-visible { outline: 2px solid #aa95ff; outline-offset: 2px; }
+    #random { margin-right: auto; background: transparent; }
+    #save { color: #171321; border-color: #b6a1ff; background: #b6a1ff; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Make the whip say it</h1>
+  <p>Your message is sent when you crack the whip.<br>It saves for next time, too.</p>
+  <form id="form">
+    <label for="message">Custom message</label>
+    <input id="message" name="message" maxlength="500" placeholder="e.g. Keep working until complete" autocomplete="off" spellcheck="false">
+    <div class="hint"><span>Leave empty to use random messages.</span><span id="count">0 / 500</span></div>
+    <div id="error" role="alert"></div>
+    <footer>
+      <button id="random" type="button">Use random</button>
+      <button id="cancel" type="button">Cancel</button>
+      <button id="save" type="submit">Save message</button>
+    </footer>
+  </form>
+  <script src="message.js"></script>
+</body>
+</html>

@@ -12,6 +12,9 @@ public class OpenWhipReceiver : Form {
   public TextBox Input = new TextBox();
   public List<string> Submitted = new List<string>();
   public int Interrupts;
+  public int Clicks;
+  public int Ticks;
+  public Button ClickTarget = new Button { Text = "Click-through test", Dock = DockStyle.Bottom, Height = 32 };
   public OpenWhipReceiver(string title, int left) {
     Text = title;
     Size = new Size(520, 180);
@@ -28,9 +31,12 @@ public class OpenWhipReceiver : Form {
     };
     Controls.Add(Input);
     Controls.Add(label);
+    ClickTarget.Click += (sender, e) => { Clicks++; Input.Focus(); };
+    Controls.Add(ClickTarget);
     Shown += (sender, e) => Input.Focus();
   }
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
+  public Point ClickPoint() { return ClickTarget.PointToScreen(new Point(ClickTarget.Width / 2, ClickTarget.Height / 2)); }
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr handle, IntPtr pid);
   [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
@@ -50,18 +56,18 @@ $receiverB = [OpenWhipReceiver]::new('OpenWhip test receiver B', 660)
 $testTimer = [System.Windows.Forms.Timer]::new()
 $testTimer.Interval = 40
 $receiverStarted = [DateTime]::UtcNow
-$reportSequence = 0
 $writeReceiverReport = {
   $receiverReport = [ordered]@{
     pid = $PID
     foreground = [OpenWhipReceiver]::GetForegroundWindow().ToInt64()
-    a = [ordered]@{ handle = $receiverA.Handle.ToInt64(); text = $receiverA.Input.Text; interrupts = $receiverA.Interrupts; submitted = @($receiverA.Submitted.ToArray()) }
+    a = [ordered]@{ handle = $receiverA.Handle.ToInt64(); text = $receiverA.Input.Text; interrupts = $receiverA.Interrupts; submitted = @($receiverA.Submitted.ToArray()); clicks = $receiverA.Clicks; ticks = $receiverA.Ticks; clickPoint = [ordered]@{ x = $receiverA.ClickPoint().X; y = $receiverA.ClickPoint().Y } }
     b = [ordered]@{ handle = $receiverB.Handle.ToInt64(); text = $receiverB.Input.Text; interrupts = $receiverB.Interrupts; submitted = @($receiverB.Submitted.ToArray()) }
   }
   $receiverReport | ConvertTo-Json -Depth 5 -Compress | Set-Content -LiteralPath ($Report + '.tmp') -Encoding UTF8
   Move-Item -LiteralPath ($Report + '.tmp') -Destination $Report -Force
 }
 $testTimer.Add_Tick({
+  $receiverA.Ticks += 1
   if ([IO.File]::Exists($Command)) {
     $receiverCommand = [IO.File]::ReadAllText($Command).Trim()
     [IO.File]::Delete($Command)

@@ -21,7 +21,7 @@ To install your local checkout instead:
 ```sh
 npm ci
 npm pack
-npm install -g ./nightplayproject-openwhip-1.2.0.tgz
+npm install -g ./nightplayproject-openwhip-1.3.0.tgz
 ```
 
 ## Controls
@@ -30,11 +30,11 @@ Focus the text field or terminal you want to send to, then:
 
 - **Ctrl+Alt+W** or click the tray icon: pick up or drop the whip.
 - Move the mouse sharply to crack the whip and send the macro.
-- **Ctrl+Alt+Enter**: send the macro directly, even while the whip is hidden.
 - **Escape** or click while holding the whip: drop it.
-- Right-click the tray for controls and Quit.
+- Right-click the tray and choose **Custom message…** to enter and save your own text. Cancel leaves the current message unchanged. Choose **Use random messages** to return to the defaults.
+- Right-click the tray for Quit.
 
-The overlay covers all connected displays without taking keyboard focus. Each trigger captures the active app. Windows waits for shortcut modifiers to be released, sends Ctrl+C, waits 500 ms, types the message, waits another 150 ms, and presses an unmodified Enter. Input is checked before every character and before Enter. Changing foreground windows cancels the remaining sequence. Rapid cracks are dropped while a macro is running; they are never queued for later delivery.
+Messages are sent only by cracking the whip. The overlay follows the pointer's monitor and lets clicks pass through to the apps underneath. It does not take keyboard focus. Cursor tracking and animation stop when the whip is hidden; clicking also drops it on Windows. Each crack captures the active app. Windows waits for modifiers to be released, sends Ctrl+C, waits 500 ms, types the message, waits another 150 ms, and presses an unmodified Enter. Input is checked before every character and before Enter. Changing foreground windows or dropping the whip cancels the remaining sequence. Rapid cracks are dropped while a macro is running; they are never queued for later delivery.
 
 Use a custom message or longer delays for an app that takes more time to respond to Ctrl+C:
 
@@ -43,7 +43,7 @@ openwhip --quit
 openwhip --message "Keep working until complete" --interrupt-delay 1000 --enter-delay 250
 ```
 
-Options apply to that running instance. Messages must be a single line of up to 500 characters.
+Tray messages save between launches. The command-line `--message` option overrides the saved text for that instance; editing through the tray updates both the running message and the saved setting. Timing options apply to the running instance. Messages must be a single line of up to 500 characters.
 
 ```sh
 openwhip --status
@@ -59,18 +59,21 @@ Windows can inject input only into apps at the same or a lower privilege level. 
 
 The inherited macOS and Linux support is retained, with active-app checks added. macOS requires Accessibility permission; Linux requires X11 and `xdotool`. Those platforms have not been tested in this fork. Use the global overlay shortcut to preserve focus when opening the whip there.
 
-Logs and runtime status are stored in `%APPDATA%/openwhip-nightplay` on Windows. The log records failures and startup information, without logging the message text.
+Logs, runtime status, and `settings.json` are stored in `%APPDATA%/openwhip-nightplay` on Windows. The log records failures and startup information, without logging the message text.
 
 ## Development and validation
 
 ```sh
 npm ci
 npm test
+npm run test:ui
 npm run test:windows
 npm start
 ```
 
-The Windows smoke test opens two temporary native text windows, sends actual Windows input to the focused test receiver, verifies exact text and a single Enter, changes focus to verify cancellation, and exercises the real Electron global shortcuts and overlay. It closes the receivers and tray app when finished. Quit OpenWhip before running it. To check the globally installed build, run `node scripts/smoke-windows.js --installed`.
+The UI test opens the tray message editor, checks save, cancel, invalid input, restoring random messages, and persistence after relaunch in an isolated test profile. It also renders a screenshot for inspection.
+
+The Windows smoke test opens two temporary native text windows, sends actual Windows input to the focused test receiver, verifies exact text and a single Enter, and changes focus to verify cancellation. It confirms the removed shortcut sends nothing, clicks pass through the visible overlay, and actual mouse motion cracks the whip and submits the message. It closes the receivers and tray app when finished. Quit OpenWhip before running it. To check the globally installed build, run `node scripts/smoke-windows.js --installed`.
 
 Validation artifacts are written under `out/validation`. See [VALIDATION.md](VALIDATION.md) for the checked scope.
 

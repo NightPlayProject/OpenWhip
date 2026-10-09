@@ -3,7 +3,7 @@
 <head>
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src 'self'">
 <style>
-  * { margin: 0; padding: 0; cursor: none; }
+  * { margin: 0; padding: 0; }
   html, body { overflow: hidden; background: transparent; width: 100%; height: 100%; }
   canvas { display: block; }
 </style>
@@ -60,7 +60,6 @@ const P = {
   outlineWidth:   3,      // white halo on each side of the stroke (approx px)
   handleExtraWidth: 5,    // added core + outline thickness on first handleThickSegments links only
   handleThickSegments: 2, // how many links from the handle get handleExtraWidth
-  bgAlpha:        0.011,  // barely-visible bg so window captures mouse events
 
   // Initial arc shape
   arcWidth:       260,    // how far right the arc extends from mouse
@@ -81,6 +80,8 @@ let mouseX = 0, mouseY = 0;
 let prevMouseX = 0, prevMouseY = 0;
 let whip = null;
 let dropping = false;
+let dropStartedAt = 0;
+let frame = null;
 let lastCrackTime = 0;
 let whipSpawnTime = 0;
 let handleAngle = P.baseTargetAngle;
@@ -88,10 +89,7 @@ let handleAngVel = 0;
 
 const WHIP_CRACK_SOUNDS = ['sounds/A.mp3', 'sounds/B.mp3', 'sounds/C.mp3', 'sounds/D.mp3', 'sounds/E.mp3'];
 
-document.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
-document.addEventListener('mousedown', () => {
-  if (whip && !dropping) dropping = true;
-});
+window.bridge.onCursorState(point => { mouseX = point.x; mouseY = point.y; });
 
 // ── Whip creation ───────────────────────────────────────────────────────────
 function spawnWhip(mx, my) {
@@ -368,7 +366,7 @@ function update() {
   }
 
   // If dropping, check if everything fell off screen
-  if (dropping && whip.every(p => p.y > H + 60)) {
+  if (dropping && (whip.every(p => p.y > H + 60) || Date.now() - dropStartedAt > 800)) {
     whip = null;
     dropping = false;
     window.bridge.hideOverlay();
@@ -380,10 +378,6 @@ function update() {
 // ── Rendering ───────────────────────────────────────────────────────────────
 function draw() {
   ctx.clearRect(0, 0, W, H);
-
-  // Near-invisible fill so the window captures mouse events on Windows
-  ctx.fillStyle = `rgba(0,0,0,${P.bgAlpha})`;
-  ctx.fillRect(0, 0, W, H);
 
   if (!whip) return;
 
@@ -430,11 +424,11 @@ function draw() {
 
 // ── Main loop ───────────────────────────────────────────────────────────────
 function loop() {
+  frame = null;
   update();
   draw();
-  requestAnimationFrame(loop);
+  if (whip) frame = requestAnimationFrame(loop);
 }
-loop();
 
 // ── IPC from main process ───────────────────────────────────────────────────
 window.bridge.onSpawnWhip(point => {
@@ -446,10 +440,19 @@ window.bridge.onSpawnWhip(point => {
   prevMouseY = mouseY;
   handleAngle = P.baseTargetAngle;
   handleAngVel = 0;
+  if (frame === null) frame = requestAnimationFrame(loop);
 });
 
 window.bridge.onDropWhip(() => {
-  if (whip && !dropping) dropping = true;
+  if (whip && !dropping) { dropping = true; dropStartedAt = Date.now(); }
+});
+
+window.bridge.onStopWhip(() => {
+  whip = null;
+  dropping = false;
+  if (frame !== null) cancelAnimationFrame(frame);
+  frame = null;
+  ctx.clearRect(0, 0, W, H);
 });
 
 </script>

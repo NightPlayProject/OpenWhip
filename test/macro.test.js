@@ -76,6 +76,29 @@ test('missing foreground app produces no keyboard events', async () => {
   assert.deepEqual(f.events, []);
 });
 
+test('dropping the whip before text cancels the message and Enter', async () => {
+  const f = fixture();
+  const runner = new MacroRunner(f.input, {}, async () => runner.cancel());
+  await assert.rejects(runner.run({ handle: 1 }), { code: 'WHIP_CANCELLED' });
+  assert.deepEqual(f.events, ['release', 'interrupt']);
+});
+
+test('dropping the whip during typing cancels the remaining characters and Enter', async () => {
+  const f = fixture();
+  const typed = [];
+  const runner = new MacroRunner(f.input, { message: 'ABCD' }, async () => {});
+  f.input.type = (_target, text, assertContinuing) => {
+    for (const character of text) {
+      assertContinuing();
+      typed.push(character);
+      runner.cancel();
+    }
+  };
+  await assert.rejects(runner.run({ handle: 1 }), { code: 'WHIP_CANCELLED' });
+  assert.deepEqual(typed, ['A']);
+  assert.equal(f.events.includes('enter'), false);
+});
+
 test('CLI accepts Unicode single-line messages and bounded timings', () => {
   assert.equal(parseOptions(['--message', 'Go faster 🐸', '--interrupt-delay', '900']).interruptDelay, 900);
   for (const args of [['--message', 'line\nsubmit'], ['--message', '\x1b'], ['--enter-delay', '-1'], ['--interrupt-delay', 'NaN'], ['--unknown'], ['--quit', '--status']]) {
