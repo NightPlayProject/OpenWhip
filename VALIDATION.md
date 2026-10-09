@@ -1,5 +1,7 @@
 # Validation
 
+The release-verification script `node scripts/live-update-smoke.js 1.5.1` launches the globally installed 1.5.0 bootstrap in an isolated Windows profile, uses the real GitHub feed and npm installer to upgrade to 1.5.1 automatically, and checks the restarted runtime and global CLI. It verifies byte-for-byte preservation of custom text, audio and preferences, then runs the native whip smoke test against the upgraded runtime. Its machine-readable result is saved as `out/validation/live-update-smoke.json`.
+
 Checked on Windows on October 8, 2026, using Node.js 24.15.0, Electron 44.7.0, and Koffi 3.3.2.
 
 Version 1.5.0: `npm test` passes twenty-eight checks covering the macro sequence and delays, cancellation on focus changes and dropping the whip, overlapping triggers, CLI validation, and message persistence. Motion checks replay strokes at 30–240 Hz with 4–25 ms cursor sampling. Updater checks cover immutable GitHub metadata, version comparisons, disabled checks, throttling, concurrent downloads, failed downloads, runtime path validation, and a failed restart that actually launches the previous copy. Sound checks cover copying audio, preserving other settings, rejecting invalid files, and detecting damaged copies. `npm audit --omit=dev` reports zero vulnerabilities for this lockfile.

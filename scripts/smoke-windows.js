@@ -20,9 +20,9 @@ async function main() {
   const receiver = spawn('powershell.exe', ['-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'native-receiver.ps1'), '-Report', reportPath, '-Command', commandPath], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   let receiverErrors = '';
   receiver.stderr.on('data', chunk => { receiverErrors += chunk; });
-  const cli = process.argv.includes('--installed')
+  const cli = process.env.OPENWHIP_TEST_CLI || (process.argv.includes('--installed')
     ? path.join(process.env.APPDATA, 'npm', 'node_modules', '@nightplayproject', 'openwhip', 'bin', 'openwhip.js')
-    : path.resolve(__dirname, '..', 'bin', 'openwhip.js');
+    : path.resolve(__dirname, '..', 'bin', 'openwhip.js'));
   const input = createWindowsInput();
   const read = () => {
     try { return JSON.parse(fs.readFileSync(reportPath, 'utf8').replace(/^\uFEFF/, '')); }
