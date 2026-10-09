@@ -95,7 +95,7 @@ async function main() {
   const automatic = updates.items.find(item => item.label === 'Automatic updates');
   automatic.click({ checked: false });
   assert.equal(store.read().autoUpdates, false);
-  fs.writeFileSync(path.join(output, process.env.OPENWHIP_UI_SMOKE_APP ? 'ui-smoke-installed.json' : 'ui-smoke-source.json'), JSON.stringify({ passed: true, installedPackage: Boolean(process.env.OPENWHIP_UI_SMOKE_APP), version: require('../package.json').version, results: ['Tray menu opens the real message editor.', 'Save persists exact Unicode text.', 'Invalid text is rejected without changing the setting.', 'Cancel preserves the existing message.', 'Tray random-message option restores defaults.'] }, null, 2) + '\n');
+  fs.writeFileSync(path.join(output, process.env.OPENWHIP_UI_SMOKE_APP ? 'ui-smoke-installed.json' : 'ui-smoke-source.json'), JSON.stringify({ passed: true, installedPackage: Boolean(process.env.OPENWHIP_UI_SMOKE_APP), version: readStatus().version, results: ['Tray menu opens the real message editor.', 'Save persists exact Unicode text.', 'Invalid text is rejected without changing the setting.', 'Cancel preserves the existing message.', 'Tray random-message option restores defaults.', 'Custom WAV decodes and plays after its original file is deleted.', 'Invalid audio preserves the saved selection.', 'Default sounds restore and update preference persists.'] }, null, 2) + '\n');
   console.log('UI editor and tray: messages, real custom-audio decode/playback, default sounds, and update preference passed.');
   app.quit();
 }

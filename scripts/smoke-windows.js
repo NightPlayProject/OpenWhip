@@ -24,9 +24,11 @@ async function main() {
     ? path.join(process.env.APPDATA, 'npm', 'node_modules', '@nightplayproject', 'openwhip', 'bin', 'openwhip.js')
     : path.resolve(__dirname, '..', 'bin', 'openwhip.js'));
   const input = createWindowsInput();
+  let lastReport = null;
   const read = () => {
-    try { return JSON.parse(fs.readFileSync(reportPath, 'utf8').replace(/^\uFEFF/, '')); }
-    catch { return null; }
+    try { lastReport = JSON.parse(fs.readFileSync(reportPath, 'utf8').replace(/^\uFEFF/, '')); }
+    catch { /* The PowerShell receiver briefly replaces the report file each tick. */ }
+    return lastReport;
   };
   async function until(predicate, message, timeout = 8000) {
     const deadline = Date.now() + timeout;
